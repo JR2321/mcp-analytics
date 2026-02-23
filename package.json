@@ -1,0 +1,27 @@
+{
+  "name": "mcp-analytics",
+  "version": "1.0.0",
+  "description": "MCP Analytics platform for monitoring and analyzing Model Context Protocol servers",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "start": "node -e \"require('tsx/cjs');require('./packages/server/src/index.ts')\"",
+    "dev": "tsx packages/server/src/index.ts",
+    "seed": "tsx packages/server/src/seed.ts",
+    "build": "echo 'Use tsx for direct execution'",
+    "clean": "rm -rf node_modules packages/*/node_modules analytics.db"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "tsx": "^4.21.0"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "name": "@anthropic/mcp-analytics",
+  "version": "1.0.0",
+  "description": "Analytics SDK for Model Context Protocol servers",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "test": "jest",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "analytics",
+    "monitoring",
+    "observability"
+  ],
+  "author": "Anthropic",
+  "license": "MIT",
+  "dependencies": {
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/uuid": "^9.0.0",
+    "@types/jest": "^29.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
+    "typescript": "^5.0.0"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=0.1.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropic/mcp-analytics"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

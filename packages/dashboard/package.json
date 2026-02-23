@@ -1,0 +1,20 @@
+{
+  "name": "@mcp-analytics/dashboard",
+  "version": "1.0.0",
+  "description": "Web dashboard for MCP Analytics platform",
+  "private": true,
+  "main": "static/index.html",
+  "scripts": {
+    "build": "echo 'No build step required for static files'",
+    "test": "echo 'No tests defined'"
+  },
+  "keywords": [
+    "mcp",
+    "analytics",
+    "dashboard",
+    "monitoring"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
