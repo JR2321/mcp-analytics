@@ -17,7 +17,7 @@ const analytics = track(server, 'proj_abc123', {
 });
 ```
 
-That's it. Every tool call, resource read, and prompt execution is now tracked.
+That's it. Every tool call, resource read, and prompt execution is now tracked. Open `http://localhost:3800` to see sessions, tool usage, errors, and intent in real time.
 
 ---
 
@@ -68,7 +68,16 @@ npm run seed   # Load demo data (optional)
 npm run dev    # Start server + dashboard
 ```
 
-Open **http://localhost:3800**. Enter the project ID and API key printed by the seed script.
+You should see:
+
+```
+Analytics server running on http://localhost:3800
+Demo project created:
+  Project ID: proj_demo_abc123
+  API Key: ak_demo_xyz789
+```
+
+Open **http://localhost:3800**. Enter the project ID and API key above.
 
 ### 2. Add tracking to your MCP server
 
@@ -78,6 +87,7 @@ npm install @mcp-analytics/sdk
 
 ```typescript
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { track } from '@mcp-analytics/sdk';
 
 const server = new Server({
@@ -97,6 +107,23 @@ const analytics = track(server, process.env.MCP_ANALYTICS_PROJECT_ID, {
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   // ... your logic here
 });
+```
+
+Or if you prefer curl to verify the server is working:
+
+```bash
+# Create a project
+curl -X POST http://localhost:3800/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name": "test-project"}'
+```
+
+```json
+{
+  "projectId": "proj_a1b2c3d4",
+  "apiKey": "ak_e5f6g7h8",
+  "name": "test-project"
+}
 ```
 
 ### 3. View the dashboard
@@ -179,13 +206,43 @@ track(server, projectId, {
 
 ### Intent Capture
 
-The SDK injects an optional `context` parameter into tool schemas. When an LLM explains why it's calling a tool, that reasoning is captured alongside the call. This powers the "Intent Analysis" view in the dashboard.
+The SDK injects an optional `context` parameter into tool schemas. When an LLM explains why it's calling a tool, that reasoning is captured alongside the call.
+
+Example event with intent:
+
+```json
+{
+  "eventType": "tools/call",
+  "request": {
+    "name": "search_docs",
+    "arguments": { "query": "authentication" }
+  },
+  "context": "User asked how to set up OAuth. Searching docs for authentication guides to provide step-by-step instructions.",
+  "duration": 245,
+  "metadata": { "success": true }
+}
+```
 
 The `context` parameter is automatically stripped before reaching your tool handler. Your code doesn't need to change.
 
 ### Sensitive Data Handling
 
 By default, the SDK redacts fields containing: `password`, `token`, `key`, `secret`, `authorization`, `auth`, `credential`, `private`.
+
+Example:
+
+```json
+{
+  "request": {
+    "name": "connect_db",
+    "arguments": {
+      "host": "db.example.com",
+      "password": "[REDACTED]",
+      "api_key": "[REDACTED]"
+    }
+  }
+}
+```
 
 Override with a custom `redact` function for project-specific needs.
 
@@ -195,16 +252,6 @@ Override with a custom `redact` function for project-specific needs.
 
 All endpoints require an API key via `X-API-Key` header (except project creation).
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/api/v1/projects` | Create a project (returns API key) |
-| `POST` | `/api/v1/events` | Batch event ingestion |
-| `GET` | `/api/v1/projects/:id/sessions` | List sessions (paginated) |
-| `GET` | `/api/v1/projects/:id/sessions/:sid` | Session detail with all events |
-| `GET` | `/api/v1/projects/:id/analytics` | Aggregated metrics |
-| `GET` | `/api/v1/projects/:id/tools` | Per-tool breakdown |
-| `GET` | `/api/v1/projects/:id/errors` | Error listing with stack traces |
-
 ### Create a Project
 
 ```bash
@@ -213,12 +260,92 @@ curl -X POST http://localhost:3800/api/v1/projects \
   -d '{"name": "my-mcp-server"}'
 ```
 
-Response:
 ```json
 {
   "projectId": "proj_abc123",
   "apiKey": "ak_xyz789",
   "name": "my-mcp-server"
+}
+```
+
+### Send Events
+
+```bash
+curl -X POST http://localhost:3800/api/v1/events \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: ak_xyz789" \
+  -d '{
+    "events": [{
+      "eventId": "evt_001",
+      "projectId": "proj_abc123",
+      "sessionId": "sess_001",
+      "eventType": "tools/call",
+      "timestamp": 1709000000000,
+      "duration": 150,
+      "request": {"name": "search", "arguments": {"query": "test"}},
+      "response": {"content": [{"type": "text", "text": "result"}]},
+      "metadata": {"success": true}
+    }]
+  }'
+```
+
+```json
+{
+  "accepted": 1,
+  "errors": []
+}
+```
+
+### List Sessions
+
+```bash
+curl http://localhost:3800/api/v1/projects/proj_abc123/sessions \
+  -H "X-API-Key: ak_xyz789"
+```
+
+```json
+{
+  "sessions": [
+    {
+      "sessionId": "sess_001",
+      "startTime": 1709000000000,
+      "lastActivity": 1709000300000,
+      "eventCount": 24,
+      "toolCalls": 8,
+      "errors": 1
+    }
+  ],
+  "total": 1
+}
+```
+
+### Get Session Detail
+
+```bash
+curl http://localhost:3800/api/v1/projects/proj_abc123/sessions/sess_001 \
+  -H "X-API-Key: ak_xyz789"
+```
+
+```json
+{
+  "sessionId": "sess_001",
+  "events": [
+    {
+      "eventId": "evt_001",
+      "eventType": "initialize",
+      "timestamp": 1709000000000,
+      "client": {"name": "my-server", "version": "1.0.0"}
+    },
+    {
+      "eventId": "evt_002",
+      "eventType": "tools/call",
+      "timestamp": 1709000005000,
+      "duration": 150,
+      "request": {"name": "search", "arguments": {"query": "test"}},
+      "context": "Looking up test data for the user's request",
+      "metadata": {"success": true}
+    }
+  ]
 }
 ```
 
@@ -228,6 +355,131 @@ Response:
 curl http://localhost:3800/api/v1/projects/proj_abc123/analytics \
   -H "X-API-Key: ak_xyz789"
 ```
+
+```json
+{
+  "totalSessions": 142,
+  "totalEvents": 3847,
+  "totalToolCalls": 1203,
+  "errorRate": 0.034,
+  "avgSessionDuration": 185000,
+  "topTools": [
+    {"name": "search_docs", "calls": 487, "avgDuration": 230, "errorRate": 0.02},
+    {"name": "create_issue", "calls": 312, "avgDuration": 890, "errorRate": 0.05}
+  ]
+}
+```
+
+### Get Tool Breakdown
+
+```bash
+curl http://localhost:3800/api/v1/projects/proj_abc123/tools \
+  -H "X-API-Key: ak_xyz789"
+```
+
+```json
+{
+  "tools": [
+    {
+      "name": "search_docs",
+      "totalCalls": 487,
+      "successRate": 0.98,
+      "avgDuration": 230,
+      "p95Duration": 580,
+      "topIntents": [
+        "Finding documentation for user questions",
+        "Looking up API reference details"
+      ]
+    }
+  ]
+}
+```
+
+### List Errors
+
+```bash
+curl http://localhost:3800/api/v1/projects/proj_abc123/errors \
+  -H "X-API-Key: ak_xyz789"
+```
+
+```json
+{
+  "errors": [
+    {
+      "eventId": "evt_089",
+      "sessionId": "sess_012",
+      "eventType": "tools/call",
+      "timestamp": 1709001200000,
+      "request": {"name": "create_issue", "arguments": {"title": ""}},
+      "error": {
+        "name": "McpError",
+        "message": "title is required and must be non-empty",
+        "stack": "McpError: title is required..."
+      }
+    }
+  ],
+  "total": 41
+}
+```
+
+---
+
+## Error Handling
+
+### Common Errors
+
+**Invalid API key:**
+
+```bash
+curl http://localhost:3800/api/v1/projects/proj_abc123/analytics \
+  -H "X-API-Key: ak_wrong_key"
+```
+
+```json
+{
+  "error": "unauthorized",
+  "message": "Invalid or missing API key"
+}
+```
+
+Status: `401`
+
+**Project not found:**
+
+```json
+{
+  "error": "not_found",
+  "message": "Project proj_nonexistent not found"
+}
+```
+
+Status: `404`
+
+**Malformed event payload:**
+
+```json
+{
+  "error": "validation_error",
+  "message": "events must be a non-empty array",
+  "details": {
+    "field": "events",
+    "expected": "array"
+  }
+}
+```
+
+Status: `400`
+
+### SDK Error Behavior
+
+The SDK never throws errors or blocks your MCP server. If the analytics server is unreachable:
+
+1. Events queue in memory (up to `maxQueueSize`, default 1000)
+2. The SDK retries with exponential backoff (up to `maxRetries`, default 3)
+3. If the queue fills, oldest events are dropped
+4. A warning logs to console if `debug: true`
+
+Your MCP tools always respond normally regardless of analytics availability.
 
 ---
 
@@ -295,7 +547,17 @@ track(server, projectId, {
 });
 ```
 
-Compatible with Datadog, Sentry, Grafana, Honeycomb, and any OTLP-compatible backend.
+Events are exported as spans with tool name, duration, and error status. Compatible with Datadog, Sentry, Grafana, Honeycomb, and any OTLP-compatible backend.
+
+Example span attributes:
+
+```
+mcp.tool.name: "search_docs"
+mcp.tool.duration_ms: 230
+mcp.tool.success: true
+mcp.session.id: "sess_001"
+mcp.intent: "Looking up authentication docs for user"
+```
 
 ---
 
